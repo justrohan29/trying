@@ -1,10 +1,13 @@
 // Import required dependencies
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const dotenv = require('dotenv');
+
+// Load environment variables
+dotenv.config();
 
 // Initialize the Express app
 const app = express();
@@ -12,15 +15,14 @@ app.use(express.json()); // Middleware to parse JSON request bodies
 app.use(cors()); // Enable CORS for frontend-backend communication
 
 // Data storage
-const groups = []; // Store groups and their members
+const groups = []; // Store groups, their members, and photos
 
 // Cloudinary Configuration
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
+    api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-
 
 // Configure Multer for Cloudinary Storage
 const storage = new CloudinaryStorage({
@@ -42,6 +44,11 @@ app.post('/host-group', (req, res) => {
     const { groupName, safeKey, host } = req.body;
     if (!groupName || !safeKey || !host) {
         return res.status(400).json({ message: 'Group name, safe key, and host are required!' });
+    }
+
+    // Check if the group already exists
+    if (groups.find((g) => g.safeKey === safeKey)) {
+        return res.status(400).json({ message: 'A group with this safe key already exists!' });
     }
 
     groups.push({
