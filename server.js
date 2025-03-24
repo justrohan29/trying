@@ -1,134 +1,116 @@
-import React, { useState } from 'react';
+// Import required dependencies
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-function App() {
-    const [mode, setMode] = useState(null); // Track user's choice (host or join)
-    const [groupName, setGroupName] = useState('');
-    const [safeKey, setSafeKey] = useState('');
-    const [isInGroup, setIsInGroup] = useState(false); // Track if user is in a group
-    const [photos, setPhotos] = useState([]);
-    const [uploadMessage, setUploadMessage] = useState('');
-    const [file, setFile] = useState(null); // For file input
+// Initialize the Express app
+const app = express();
+app.use(express.json()); // Middleware to parse JSON request bodies
+app.use(cors()); // Enable CORS for frontend-backend communication
 
-    const hostGroup = async (e) => {
-        e.preventDefault();
-        const host = 'user@example.com'; // Replace with logged-in user's email
+// Data storage
+const groups = []; // Store groups and their members
 
-        try {
-            const response = await fetch('https://trying-bzx8.onrender.com/host-group', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ groupName, safeKey, host }),
-            });
-            const data = await response.json();
-            if (response.ok) {
-                alert(data.message);
-                setIsInGroup(true); // Mark the user as being in a group
-            }
-        } catch (error) {
-            console.error('Error hosting group:', error);
-        }
-    };
+// Cloudinary Configuration
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
-    const joinGroup = async (e) => {
-        e.preventDefault();
-        const user = 'user@example.com'; // Replace with logged-in user's email
 
-        try {
-            const response = await fetch('https://trying-bzx8.onrender.com/join-group', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ safeKey, user }),
-            });
-            const data = await response.json();
-            if (response.ok) {
-                alert(data.message);
-                setIsInGroup(true); // Mark the user as being in a group
-            }
-        } catch (error) {
-            console.error('Error joining group:', error);
-        }
-    };
+// Configure Multer for Cloudinary Storage
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'group-photos', // Folder name in Cloudinary
+        allowed_formats: ['jpg', 'png', 'jpeg'], // Restrict allowed formats
+    },
+});
+const upload = multer({ storage: storage });
 
-    const uploadPhoto = async (e) => {
-        e.preventDefault();
-        const user = 'user@example.com'; // Replace with logged-in user's email
-        const formData = new FormData();
-        formData.append('photo', file);
-        formData.append('safeKey', safeKey);
-        formData.append('user', user);
+// Route: Base Test Route
+app.get('/', (req, res) => {
+    res.send('Welcome to the Photo Exhibition Platform!');
+});
 
-        try {
-            const response = await fetch('https://trying-bzx8.onrender.com/upload-photo', {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await response.json();
-            setUploadMessage(data.message);
-        } catch (error) {
-            console.error('Error uploading photo:', error);
-        }
-    };
+// Route: Host a Group
+app.post('/host-group', (req, res) => {
+    const { groupName, safeKey, host } = req.body;
+    if (!groupName || !safeKey || !host) {
+        return res.status(400).json({ message: 'Group name, safe key, and host are required!' });
+    }
 
-    const fetchPhotos = async () => {
-        const user = 'user@example.com'; // Replace with logged-in user's email
+    groups.push({
+        groupName,
+        safeKey,
+        host,
+        members: [host],
+        photos: [],
+    });
 
-        try {
-            const response = await fetch(`https://trying-bzx8.onrender.com/group-photos?safeKey=${safeKey}&user=${user}`);
-            const data = await response.json();
-            setPhotos(data.photos);
-        } catch (error) {
-            console.error('Error fetching photos:', error);
-        }
-    };
+    res.json({ message: `Group '${groupName}' hosted successfully!`, safeKey });
+});
 
-    return (
-        <div>
-            <header style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#333', color: '#fff' }}>
-                <h1>Photo Exhibition Platform</h1>
-            </header>
+// Route: Join a Group
+app.post('/join-group', (req, res) => {
+    const { safeKey, user } = req.body;
+    const group = groups.find((g) => g.safeKey === safeKey);
 
-            {!isInGroup ? (
-                !mode ? (
-                    <div style={{ textAlign: 'center', margin: '20px' }}>
-                        <button onClick={() => setMode('host')}>Host a Group</button>
-                        <button onClick={() => setMode('join')}>Join a Group</button>
-                    </div>
-                ) : mode === 'host' ? (
-                    <form onSubmit={hostGroup} style={{ textAlign: 'center' }}>
-                        <input type="text" placeholder="Group Name" onChange={(e) => setGroupName(e.target.value)} required />
-                        <input type="text" placeholder="Safe Key" onChange={(e) => setSafeKey(e.target.value)} required />
-                        <button type="submit">Host Group</button>
-                    </form>
-                ) : (
-                    <form onSubmit={joinGroup} style={{ textAlign: 'center' }}>
-                        <input type="text" placeholder="Safe Key" onChange={(e) => setSafeKey(e.target.value)} required />
-                        <button type="submit">Join Group</button>
-                    </form>
-                )
-            ) : (
-                <div style={{ textAlign: 'center', margin: '20px' }}>
-                    <h2>Welcome to the Group</h2>
-                    <form onSubmit={uploadPhoto}>
-                        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-                        <button type="submit">Upload Photo</button>
-                    </form>
-                    {uploadMessage && <p>{uploadMessage}</p>}
+    if (!group) {
+        return res.status(404).json({ message: 'Group not found!' });
+    }
 
-                    <button onClick={fetchPhotos}>Fetch Photos</button>
-                    <div>
-                        {photos.map((photo, index) => (
-                            <img
-                                key={index}
-                                src={photo.url}
-                                alt={`Uploaded by ${photo.uploadedBy}`}
-                                style={{ margin: '10px', width: '200px' }}
-                            />
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
+    if (group.members.includes(user)) {
+        return res.status(400).json({ message: 'You are already part of this group!' });
+    }
 
-export default App;
+    group.members.push(user);
+    res.json({ message: `You joined '${group.groupName}' successfully!`, groupName: group.groupName });
+});
+
+// Route: Upload Photo to Group
+app.post('/upload-photo', upload.single('photo'), (req, res) => {
+    const { safeKey, user } = req.body;
+    const group = groups.find((g) => g.safeKey === safeKey);
+
+    if (!group) {
+        return res.status(404).json({ message: 'Group not found!' });
+    }
+
+    if (!group.members.includes(user)) {
+        return res.status(403).json({ message: 'You are not a member of this group!' });
+    }
+
+    if (!req.file) {
+        return res.status(400).json({ message: 'No photo uploaded!' });
+    }
+
+    const photoUrl = req.file.path;
+    group.photos.push({ url: photoUrl, uploadedBy: user });
+    res.json({ message: 'Photo uploaded successfully!', photoUrl });
+});
+
+// Route: Fetch Photos from a Group
+app.get('/group-photos', (req, res) => {
+    const { safeKey, user } = req.query;
+    const group = groups.find((g) => g.safeKey === safeKey);
+
+    if (!group) {
+        return res.status(404).json({ message: 'Group not found!' });
+    }
+
+    if (!group.members.includes(user)) {
+        return res.status(403).json({ message: 'You are not a member of this group!' });
+    }
+
+    res.json({ photos: group.photos });
+});
+
+// Start the Server
+app.listen(5000, () => {
+    console.log('Backend server running on http://localhost:5000');
+});
