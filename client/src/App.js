@@ -14,7 +14,7 @@ function App() {
         const host = 'user@example.com'; // Replace with logged-in user's email
 
         try {
-            const response = await fetch('http://localhost:5000/host-group', {
+            const response = await fetch('https://trying-bzx8.onrender.com/host-group', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ groupName, safeKey, host }),
@@ -34,7 +34,7 @@ function App() {
         const user = 'user@example.com'; // Replace with logged-in user's email
 
         try {
-            const response = await fetch('http://localhost:5000/join-group', {
+            const response = await fetch('https://trying-bzx8.onrender.com/join-group', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ safeKey, user }),
@@ -58,7 +58,7 @@ function App() {
         formData.append('user', user);
 
         try {
-            const response = await fetch('http://localhost:5000/upload-photo', {
+            const response = await fetch('https://trying-bzx8.onrender.com/upload-photo', {
                 method: 'POST',
                 body: formData,
             });
@@ -73,7 +73,7 @@ function App() {
         const user = 'user@example.com'; // Replace with logged-in user's email
 
         try {
-            const response = await fetch(`http://localhost:5000/group-photos?safeKey=${safeKey}&user=${user}`);
+            const response = await fetch(`https://trying-bzx8.onrender.com/group-photos?safeKey=${safeKey}&user=${user}`);
             const data = await response.json();
             setPhotos(data.photos);
         } catch (error) {
